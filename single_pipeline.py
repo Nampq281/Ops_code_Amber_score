@@ -71,7 +71,9 @@ if __name__ == "__main__":
     # ______________________________Generate features______________________________
 
     # 1. contracts_summary_terminates
-    df_tm = cal_terminate_info(df_root)
+    df_tm = (df_root.
+            pipe(cal_terminate_info)
+            )
 
     # 2/3. cc_os_rate_max_l25m, cc_os_rate_avg_l25m
     df_cc_os = (ts_card.
@@ -81,7 +83,9 @@ if __name__ == "__main__":
               )
 
     # 4. card_summary_renounces
-    df_card_rn = cal_renounces(df_root)
+    df_card_rn = (df_root.
+                  pipe(cal_renounces)
+                )
 
     # 5. pct_rm_term_lv
     df_inst_rm_lv = (install.
