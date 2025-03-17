@@ -12,7 +12,7 @@ from generate_feature import cal_terminate_info, get_card_ts, get_lxm, cal_os_ra
                             get_od, agg_ts_od, get_lxm_od, cal_od_rate, get_mthly_pmt,\
                             get_by_loantype, cal_mt_pmt_rate, get_in_ln_grp, \
                             cal_ln_grp_lxm, console_feature, transform_WOE
-from model_inference import score_scaling
+from model_inference import score_scaling, cal_score
 
 
 if __name__ == "__main__":
@@ -37,10 +37,12 @@ if __name__ == "__main__":
     noninstall = parse(df_root, field1, id_col_list)
     noninstall = handle_missing_column(noninstall, contract_level_noninstall_col)
     noninstall = noninstall.replace('null', np.nan)
+
     field2 = ['Contract.Instalments.GrantedContract']
     install = parse(df_root, field2, id_col_list)
     install = install.replace('null', np.nan)
     install = handle_missing_column(install, contract_level_install_col)
+
     field3 = ['Contract.Cards.GrantedContract']
     card = parse(df_root, field3, id_col_list)
     card = handle_missing_column(card, contract_level_card_col)    
@@ -61,9 +63,11 @@ if __name__ == "__main__":
     id_col_list_ts = ['loan_code_lv2', 'id_customer2', 'CommonData.CBContractCode']
     field = ['Profiles']
     ts_card = parse(card, field, id_col_list_ts)
-    ts_card = handle_missing_column(ts_card, ts_col)    
+    ts_card = handle_missing_column(ts_card, ts_col)
+
     ts_noninstall = parse(noninstall, field, id_col_list_ts)
-    ts_noninstall = handle_missing_column(ts_noninstall, ts_col)     
+    ts_noninstall = handle_missing_column(ts_noninstall, ts_col)
+
     ts_install = parse(install, field, id_col_list_ts)
     ts_install = handle_missing_column(ts_install, ts_col)     
 
@@ -120,31 +124,11 @@ if __name__ == "__main__":
     woe_feature = transform_WOE(df_fn)
 
     # ______________________________Model Inference______________________________
-    model_path = 'artifacts/Fiza_PCB_score_10Mar25.sav'
-    loaded_model = pickle.load(open(model_path, 'rb'))
-    woe_feature['const'] = 1
+    predict, predict_score, score_feature_dict = cal_score(woe_feature)
 
-    final_feat = ['cc_os_rate_avg_l25m',
-                  'card_summary_renounces',
-                  'contracts_summary_terminates', 
-                  'in_ln_grp_max_l4m',
-                  'cashL_mth_pmt_sum_l4m', 
-                  'cc_os_rate_max_l25m', 
-                  'od_utl_rate_max_l25m',
-                  'pct_rm_term_lv', 
-                  'consumerL_mth_pmt_sum_l25m']
     
-    offset, factor = 487.122876205, 28.853900818
-    beta = loaded_model.params
-    n = len(final_feat)
-    intercept = beta['const']
-
-    predict = loaded_model.predict(exog=woe_feature[final_feat+['const']])
-    predict_score = score_scaling(offset, factor, predict) # Output
-    score_feature = (-1*(woe_feature[final_feat]*beta+intercept/n)*factor+offset/n) 
-    score_feature = round(score_feature, 2) # Output
-
-    print('Score:', predict_score)
-    print(score_feature[final_feat].to_dict(orient='records'))
+    print('Probability:', predict[0])
+    print('Score:', predict_score[0])
+    print('Features:', score_feature_dict)
 
     print(round(time.time()  - begin,3),'seconds')
