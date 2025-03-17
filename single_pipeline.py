@@ -12,7 +12,7 @@ from generate_feature import cal_terminate_info, get_card_ts, get_lxm, cal_os_ra
                             get_od, agg_ts_od, get_lxm_od, cal_od_rate, get_mthly_pmt,\
                             get_by_loantype, cal_mt_pmt_rate, get_in_ln_grp, \
                             cal_ln_grp_lxm, console_feature, transform_WOE
-from model_inference import score_scaling, cal_score
+from model_inference import score_scaling, get_model, cal_score
 
 
 if __name__ == "__main__":
@@ -24,7 +24,6 @@ if __name__ == "__main__":
     df['credit_history'] = df['credit_history'].apply(lambda row: clean_fmt(row))
     df['created_time_fmt'] = df['created_time'].apply(lambda row: to_dt_fmt(row))
     df['id_customer2'] = df.apply(lambda row: gen_id_cus2(row.id, row.created_time_fmt), axis=1)
-    dev_df = df.copy()
 
     # ROOT level
     id_col_list = ['id_customer2']
@@ -82,7 +81,7 @@ if __name__ == "__main__":
     # 2/3. cc_os_rate_max_l25m, cc_os_rate_avg_l25m
     df_cc_os = (ts_card.
                pipe(get_card_ts, card).
-               pipe(get_lxm, dev_df).
+               pipe(get_lxm, df).
                pipe(cal_os_rate)
               )
 
@@ -101,7 +100,7 @@ if __name__ == "__main__":
     df_od_utl = (ts_noninstall.
                      pipe(get_od, noninstall).
                      pipe(agg_ts_od).
-                     pipe(get_lxm_od, dev_df).
+                     pipe(get_lxm_od, df).
                      pipe(cal_od_rate)
                     )
     
@@ -109,13 +108,13 @@ if __name__ == "__main__":
     df_consumerL = (ts_install.
                         pipe(get_mthly_pmt, install).
                         pipe(get_by_loantype).
-                        pipe(cal_mt_pmt_rate, dev_df)
+                        pipe(cal_mt_pmt_rate, df)
                         )
 
     # 9. in_ln_grp_max_l4m
     df_ins_lnGrp = (ts_install.
                         pipe(get_in_ln_grp).
-                        pipe(cal_ln_grp_lxm, dev_df)
+                        pipe(cal_ln_grp_lxm, df)
                     )
     
     # Finalize
@@ -124,11 +123,11 @@ if __name__ == "__main__":
     woe_feature = transform_WOE(df_fn)
 
     # ______________________________Model Inference______________________________
-    predict, predict_score, score_feature_dict = cal_score(woe_feature)
+    loaded_model = get_model('artifacts/Fiza_PCB_score_10Mar25.sav')
+    predict, predict_score, score_feature = cal_score(woe_feature, loaded_model)
 
-    
     print('Probability:', predict[0])
     print('Score:', predict_score[0])
-    print('Features:', score_feature_dict)
+    print('Features:', score_feature)
 
     print(round(time.time()  - begin,3),'seconds')

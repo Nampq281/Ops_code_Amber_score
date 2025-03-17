@@ -1,19 +1,33 @@
 import pandas as pd
 import numpy as np
 import pickle
+from functools import wraps
+from datetime import datetime as dt
 
+def log_step_model(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        tic = dt.now()
+        result = func(*args, **kwargs)
+        time_taken = str(dt.now() - tic)
+        print(f"[{func.__name__}] Process time: {time_taken}s")
+        return result
+    return wrapper
+
+@log_step_model
 def score_scaling(offset, factor, event_p):
     ln_odds = np.log((1-event_p)/event_p)
     score = offset + factor*ln_odds
     score = np.round(score,0)
     return score
 
+@log_step_model
 def get_model(model_path):
     loaded_model = pickle.load(open(model_path, 'rb'))
     return loaded_model
 
-def cal_score(woe_df):
-    loaded_model = get_model('artifacts/Fiza_PCB_score_10Mar25.sav')
+@log_step_model
+def cal_score(woe_df, loaded_model):
     woe_df['const'] = 1 # for statsmodels
     final_feat = ['cc_os_rate_avg_l25m',
                   'card_summary_renounces',
@@ -34,6 +48,6 @@ def cal_score(woe_df):
     predict_score = score_scaling(offset, factor, predict) 
     score_feature = (-1*(woe_df[final_feat]*beta+intercept/n)*factor+offset/n) 
     score_feature = round(score_feature, 2) 
-    score_feature_dict = score_feature[final_feat].to_dict(orient='records')
+    score_feature = score_feature[final_feat].to_dict(orient='records')
 
-    return predict, predict_score, score_feature_dict
+    return predict, predict_score, score_feature
