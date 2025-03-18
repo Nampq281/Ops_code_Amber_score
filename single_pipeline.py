@@ -122,12 +122,16 @@ if __name__ == "__main__":
     df_fn = console_feature(conso_list)
     woe_feature = transform_WOE(df_fn)
 
+    feature_value = df_fn.to_dict(orient='records')
+
     # ______________________________Model Inference______________________________
     loaded_model = get_model('artifacts/Fiza_PCB_score_10Mar25.sav')
     predict, predict_score, score_feature = cal_score(woe_feature, loaded_model)
 
-    print('Probability:', predict[0])
+    # To API-response
+    print('P_score:', predict[0])
     print('Score:', predict_score[0])
-    print('Features:', score_feature)
+    print('Features:', feature_value)
+    print('Feature_scores:', score_feature)
 
     print(round(time.time()  - begin,3),'seconds')

@@ -34,7 +34,7 @@ def cal_terminate_info(root):
 
     df_tm = root[['id_customer2']+tm_col]
     try:
-        df_tm['contracts_summary_terminates'] = df_tm[tm_col].sum(axis=1)
+        df_tm['contracts_summary_terminates'] = df_tm[tm_col].sum(axis=1, min_count=1)
     except:
         df_tm['contracts_summary_terminates'] = np.nan
     return df_tm[['id_customer2','contracts_summary_terminates']]
