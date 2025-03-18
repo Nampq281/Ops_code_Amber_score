@@ -5,7 +5,7 @@ import numpy as np
 
 def clean_fmt(t):
     t2 = t.replace('""', '"')
-    t2 = t2.replace('null', '"null"')
+    t2 = t2.replace('null', 'None')
     t2 = t2.replace('"{', '{')
     t2 = t2.replace('}"', '}')
     return t2

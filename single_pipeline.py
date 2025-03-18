@@ -12,13 +12,13 @@ from generate_feature import cal_terminate_info, get_card_ts, get_lxm, cal_os_ra
                             get_od, agg_ts_od, get_lxm_od, cal_od_rate, get_mthly_pmt,\
                             get_by_loantype, cal_mt_pmt_rate, get_in_ln_grp, \
                             cal_ln_grp_lxm, console_feature, transform_WOE
-from model_inference import score_scaling, get_model, cal_score
+from model_inference import get_model, cal_score
 
 
 if __name__ == "__main__":
     begin = time.time()
     #______________________________Data Preprocessing______________________________
-    df = pd.read_parquet(r'data_input/TO_TEST.parquet')
+    df = pd.read_parquet(r'data_input/TO_TEST2.parquet')
 
     df['created_on'] = df['created_time'].apply(lambda row: formatdate(row))
     df['credit_history'] = df['credit_history'].apply(lambda row: clean_fmt(row))
@@ -28,8 +28,9 @@ if __name__ == "__main__":
     # ROOT level
     id_col_list = ['id_customer2']
     field = ['credit_history']
+
     df_root = parse(df, field, id_col_list)
-    df_root = handle_missing_column(df_root, df_root_col)
+    df_root = handle_missing_column(df_root, df_root_col)  
 
     # Granted contracts level
     field1 = ['Contract.NonInstalments.GrantedContract']
@@ -122,12 +123,13 @@ if __name__ == "__main__":
     df_fn = console_feature(conso_list)
     woe_feature = transform_WOE(df_fn)
 
-    feature_value = df_fn.to_dict(orient='records')
-
     # ______________________________Model Inference______________________________
     loaded_model = get_model('artifacts/Fiza_PCB_score_10Mar25.sav')
     predict, predict_score, score_feature = cal_score(woe_feature, loaded_model)
 
+    df_fn = df_fn.fillna(-1)
+    feature_value = df_fn.to_dict(orient='records')
+    
     # To API-response
     print('P_score:', predict[0])
     print('Score:', predict_score[0])

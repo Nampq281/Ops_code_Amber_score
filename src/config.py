@@ -18,13 +18,10 @@ contract_level_install_col = ['id_customer2', 'loan_code_lv2',
                               'RemainingInstalmentsNumber',
                               'TotalNumberOfInstalments']
 
-contract_level_card_col = ['id_customer2', 'loan_code_lv2',
-                           'CreditLimit'
-       ]
+contract_level_card_col = ['id_customer2', 'loan_code_lv2', 'CreditLimit']
 
 
 ts_col = ['loan_code_lv2', 'id_customer2', 'CommonData.CBContractCode',
           'ReferenceYear', 'ReferenceMonth', 
           'Default', 'Status',
-          'ResidualAmount', 'Utilization', 'GuarantedAmount', 'Granted',
-       ]
+          'ResidualAmount', 'Utilization', 'GuarantedAmount', 'Granted']

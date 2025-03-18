@@ -58,7 +58,6 @@ def get_card_ts(ts_card, contract_level_card):
     ts_card2['CreditLimit'] = ts_card2['CreditLimit'].astype(float)
     ts_card2['Utilization'] = ts_card2['Utilization'].replace('', np.nan)
     ts_card2['Utilization'] = ts_card2['Utilization'].astype(float)
-
     card_os = agg_cal(ts_card2,
                     group_col=['id_customer2','ReferenceYear', 'ReferenceMonth'],
                     val='ResidualAmount',
