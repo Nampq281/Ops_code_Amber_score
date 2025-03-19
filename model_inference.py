@@ -10,7 +10,7 @@ def log_step_model(func):
         tic = dt.now()
         result = func(*args, **kwargs)
         time_taken = str(dt.now() - tic)
-        print(f"[{func.__name__}] Process time: {time_taken}s")
+        # print(f"[{func.__name__}] Process time: {time_taken}s")
         return result
     return wrapper
 

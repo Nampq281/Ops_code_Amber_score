@@ -14,7 +14,7 @@ def log_step(func):
         tic = dt.now()
         result = func(*args, **kwargs)
         time_taken = str(dt.now() - tic)
-        print(f"[{func.__name__}] Shape:{result.shape}. Process time: {time_taken}s")
+        # print(f"[{func.__name__}] Shape:{result.shape}. Process time: {time_taken}s")
         return result
     return wrapper
 
@@ -70,7 +70,14 @@ def get_card_ts(ts_card, contract_level_card):
                     agg_fn=['sum'],
                     sub_fn=[]).reset_index()
     
-    card_agg = pd.merge(card_os, card_lmt, on=['id_customer2','ReferenceYear', 'ReferenceMonth'], how='outer')
+    card_utl = agg_cal(ts_card2,
+                       group_col=['id_customer2','ReferenceYear', 'ReferenceMonth'],
+                       val='Utilization',
+                       agg_fn=['sum'],
+                       sub_fn=[]).reset_index()
+    
+    groupCC = [card_os, card_lmt, card_utl]
+    card_agg = reduce(lambda  left,right: pd.merge(left, right, on=['id_customer2','ReferenceYear', 'ReferenceMonth'], how='outer'), groupCC)
     return card_agg
 
 @log_step
@@ -81,7 +88,9 @@ def get_lxm(card_agg, dev_df):
                                        axis=1)
     df_card['ts_ym_fmt'] = create_ym_format(df_card, 'ts_ym', fmt='%Y%m')
     df_card['last_x_months'] = df_card.apply(lambda row: month_diff(row['ts_ym_fmt'], row['created_time']), axis=1)
-    rename_col = {'ResidualAmount_sum':'cc_os', 'CreditLimit_sum':'cc_lmt'}
+    rename_col = {'ResidualAmount_sum':'cc_os', 
+                  'CreditLimit_sum':'cc_lmt', 
+                  'Utilization_sum':'cc_utl'}
     df_card.rename(columns=rename_col, inplace=True)
     return df_card
 
@@ -131,7 +140,9 @@ def get_living_inst(contract_level_install):
 @log_step
 def cal_percent_remain(inst_info_lv):
     agg_inst = inst_info_lv.groupby('id_customer2').agg(
+        remain_amt=('RemainingInstalmentsAmount','sum'),
         remain_term=('RemainingInstalmentsNumber','sum'),
+        total_amt=('TotalAmount','sum'),
         total_term=('TotalNumberOfInstalments','sum')
     ).reset_index()
 
@@ -196,7 +207,7 @@ def cal_od_rate(df_nonIns):
     df_nonIns_final = generate_feature_lxm(df_nonIns,
                         group_col=['id_customer2'],
                         val_col=['od_lmt', 'od_utl', 'od_utl_rate'], 
-                        agg_fn=['mean','min','max','sum'],
+                        agg_fn=['max', 'sum'],
                         LxM=[24]).reset_index()
     df_nonIns_final = df_nonIns_final.replace(np.inf, 1)
     return df_nonIns_final[['id_customer2', 'od_utl_rate_max_l25m']]
@@ -227,6 +238,12 @@ def get_by_loantype(ts_install2):
     ts_cashLoan     = ts_install2[ts_install2['CommonData.TypeOfFinancing']=='22']
 
     group_col_inst =['id_customer2','ReferenceYear', 'ReferenceMonth']
+    allInst = agg_cal(ts_install2,
+                       group_col=group_col_inst,
+                       val='ins_mthly_pmt',
+                       agg_fn=['sum'],
+                       sub_fn=[]).reset_index()
+    
     cashLoan = agg_cal(ts_cashLoan,
                        group_col=group_col_inst,
                        val='ins_mthly_pmt',
@@ -239,9 +256,12 @@ def get_by_loantype(ts_install2):
                         agg_fn=['sum'],
                         sub_fn=[]).reset_index()
     
+    allInst = allInst.rename(columns={'ins_mthly_pmt_sum':'ins_mthly_pmt'})
     cashLoan = cashLoan.rename(columns={'ins_mthly_pmt_sum':'cashL_mth_pmt'})
     consumerLoan = consumerLoan.rename(columns={'ins_mthly_pmt_sum':'consumerL_mth_pmt'})
-    inst_lmt = pd.merge(cashLoan, consumerLoan, on=group_col_inst, how='outer')
+
+    InstLst = [allInst, cashLoan, consumerLoan]
+    inst_lmt = reduce(lambda left, right: pd.merge(left, right, on=group_col_inst, how='outer'), InstLst)
     return inst_lmt
     
 @log_step
@@ -250,7 +270,6 @@ def cal_mt_pmt_rate(inst_lmt, dev_df) :
     df_Ins['ts_ym'] = df_Ins.apply(lambda row: concat_ym(row.ReferenceYear,row.ReferenceMonth),
                                        axis=1)
     df_Ins['ts_ym_fmt'] = create_ym_format(df_Ins, 'ts_ym', fmt='%Y%m')
-
     df_Ins['last_x_months'] = df_Ins.apply(lambda row: month_diff(row['ts_ym_fmt'], row['created_time']), axis=1)
     df_Ins_final = generate_feature_lxm(df_Ins,
                             group_col=['id_customer2'],
@@ -262,26 +281,52 @@ def cal_mt_pmt_rate(inst_lmt, dev_df) :
 
 # ----------------------------------------------Feature 9
 @log_step
-def get_in_ln_grp(ts_install):
+def get_in_ln_grp(ts_install, ts_card, ts_noninstall):
     group_col = ['id_customer2','ReferenceYear', 'ReferenceMonth']
-    if ts_install.empty:
-        ts_install = pd.DataFrame(columns=['loan_code_lv2', 'id_customer2',
+
+    def get_ts_data(df):
+        if df.empty:
+            df = pd.DataFrame(columns=['loan_code_lv2', 'id_customer2',
                                             'ReferenceYear', 'ReferenceMonth',
                                             'Status'])
-    ts_install.replace('', np.nan, inplace=True)
-    ts_install['Status'] = ts_install['Status'].replace('null', np.nan)
-    ts_install['Status'] = ts_install['Status'].astype(float)
+        else:
+            df.replace('', np.nan, inplace=True)
+            df['Status'] = df['Status'].astype(float)
+        return df
+
+
+    ts_install = get_ts_data(ts_install)
+    ts_card = get_ts_data(ts_card)
+    ts_noninstall = get_ts_data(ts_noninstall)
+
+    ccStatus = agg_cal(ts_card,
+                       group_col=group_col,
+                       val='Status',
+                       agg_fn=['max'],
+                       sub_fn=[]).reset_index()
+
     InsStatus = agg_cal(ts_install,
-                    group_col=group_col,
-                    val='Status',
-                    agg_fn=['max'],
-                    sub_fn=[]).reset_index()
+                        group_col=group_col,
+                        val='Status',
+                        agg_fn=['max'],
+                        sub_fn=[]).reset_index()
+
+    NonInsStatus = agg_cal(ts_noninstall,
+                        group_col=group_col,
+                        val='Status',
+                        agg_fn=['max'],
+                        sub_fn=[]).reset_index()
+    
+    ccStatus.rename(columns={'Status_max':'cc_ln_grp'}, inplace=True)
     InsStatus.rename(columns={'Status_max':'in_ln_grp'}, inplace=True)
-    return InsStatus
+    NonInsStatus.rename(columns={'Status_max':'nonin_ln_group'}, inplace=True)
+    groupSt = [ccStatus, InsStatus, NonInsStatus]
+    totalStatus = reduce(lambda  left,right: pd.merge(left, right, on=group_col, how='outer'), groupSt)
+    return totalStatus
 
 @log_step
-def cal_ln_grp_lxm(InsStatus, dev_df):
-    dfStatus = pd.merge(dev_df[['id_customer2', 'created_time']], InsStatus, how="left", on=['id_customer2'])
+def cal_ln_grp_lxm(totalStatus, dev_df):
+    dfStatus = pd.merge(dev_df[['id_customer2', 'created_time']], totalStatus, how="left", on=['id_customer2'])
     dfStatus['ts_ym'] = dfStatus['ReferenceYear'] + dfStatus['ReferenceMonth']
     dfStatus['ts_ym_fmt'] = create_ym_format(dfStatus, 'ts_ym', fmt='%Y%m')
     dfStatus['last_x_months'] = dfStatus.apply(lambda row: month_diff(row['ts_ym_fmt'], row['created_time']), axis=1)
