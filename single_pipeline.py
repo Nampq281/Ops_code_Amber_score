@@ -18,8 +18,7 @@ from model_inference import get_model, cal_score
 if __name__ == "__main__":
     begin = time.time()
     #______________________________Data Preprocessing______________________________
-    all_result = []
-    df = pd.read_parquet(fr'data_input/TO_TEST_{i}.parquet')
+    df = pd.read_parquet(fr'data_input/TO_TEST2.parquet')
 
     df['created_on'] = df['created_time'].apply(lambda row: formatdate(row))
     df['credit_history'] = df['credit_history'].apply(lambda row: clean_fmt(row))
