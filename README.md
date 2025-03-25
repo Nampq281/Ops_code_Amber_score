@@ -19,7 +19,7 @@ python single_pipeline.py
 
 ## Cấu trúc code
 ```
-│   single_pipeline.py  <---File cần chạy     
+│   main.py  <---File cần chạy     
 │   generate_feature.py
 │   model_inference.py
 │   parse_PCB.py
