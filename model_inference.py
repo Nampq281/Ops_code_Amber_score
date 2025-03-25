@@ -10,23 +10,23 @@ def log_step_model(func):
         tic = dt.now()
         result = func(*args, **kwargs)
         time_taken = str(dt.now() - tic)
-        # print(f"[{func.__name__}] Process time: {time_taken}s")
+        print(f"[{func.__name__}] Process time: {time_taken}s")
         return result
     return wrapper
 
-@log_step_model
+# @log_step_model
 def score_scaling(offset, factor, event_p):
     ln_odds = np.log((1-event_p)/event_p)
     score = offset + factor*ln_odds
     score = np.round(score,0)
     return score
 
-@log_step_model
+# @log_step_model
 def get_model(model_path):
     loaded_model = pickle.load(open(model_path, 'rb'))
     return loaded_model
 
-@log_step_model
+# @log_step_model
 def cal_score(woe_df, loaded_model):
     woe_df['const'] = 1 # for statsmodels
     final_feat = ['cc_os_rate_avg_l25m',

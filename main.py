@@ -1,32 +1,30 @@
 import pandas as pd
 import numpy as np
-import pickle
 import time 
 
-from src.utils_ops import formatdate, to_dt_fmt, handle_missing_column
+from parse_PCB import gen_id_level2, parse, handle_missing_column
 from src.config import *
-
-from parse_PCB import clean_fmt, gen_id_level2, gen_id_cus2, parse, fmt_stringType
-from generate_feature import cal_terminate_info, get_card_ts, get_lxm, cal_os_rate, \
-                            cal_renounces, get_living_inst, cal_percent_remain, \
-                            get_od, agg_ts_od, get_lxm_od, cal_od_rate, get_mthly_pmt,\
-                            get_by_loantype, cal_mt_pmt_rate, get_in_ln_grp, \
-                            cal_ln_grp_lxm, console_feature, transform_WOE
+from generate_feature import *
 from model_inference import get_model, cal_score
-
+import json
 
 if __name__ == "__main__":
     begin = time.time()
     #______________________________Data Preprocessing______________________________
-    df = pd.read_parquet(fr'data_input/TO_TEST2.parquet')
+    with open('data_input/input.json') as json_data:
+        pcb_json = json.load(json_data)
 
-    df['created_on'] = df['created_time'].apply(lambda row: formatdate(row))
-    df['credit_history'] = df['credit_history'].apply(lambda row: clean_fmt(row))
-    df['created_time_fmt'] = df['created_time'].apply(lambda row: to_dt_fmt(row))
-    df['id_customer2'] = df.apply(lambda row: gen_id_cus2(row.id, row.created_time_fmt), axis=1)
+    id_customer = pcb_json['contract_info']['customer_id']
+    created_time = pcb_json['contract_info']['disbursed_time']
+    credit_history = pcb_json['pcb_info']['pcb_output']['CI_Req_Output']['CreditHistory']
 
+    df = pd.DataFrame()
+    df['customer_id'] = [id_customer]
+    df['created_time'] = [created_time]
+    df['credit_history'] = [credit_history]
+    
     # ROOT level
-    id_col_list = ['id_customer2']
+    id_col_list = ['customer_id']
     field = ['credit_history']
 
     df_root = parse(df, field, id_col_list)
@@ -50,17 +48,12 @@ if __name__ == "__main__":
 
 
     # Generate loan_code_lv2
-    noninstall['loan_code_lv2'] = gen_id_level2(noninstall, 'id_customer2')
-    install['loan_code_lv2'] = gen_id_level2(install, 'id_customer2')
-    card['loan_code_lv2'] = gen_id_level2(card, 'id_customer2')
-
-    noninstall = fmt_stringType(noninstall, ['Profiles'])
-    install = fmt_stringType(install, ['Profiles', 'InstGuarantees'])
-    card = fmt_stringType(card, ['Profiles', 'CardsGuarantees'])
-
+    noninstall['loan_code_lv2'] = gen_id_level2(noninstall, 'customer_id')
+    install['loan_code_lv2'] = gen_id_level2(install, 'customer_id')
+    card['loan_code_lv2'] = gen_id_level2(card, 'customer_id')
     
     # Time series level
-    id_col_list_ts = ['loan_code_lv2', 'id_customer2', 'CommonData.CBContractCode']
+    id_col_list_ts = ['loan_code_lv2', 'customer_id', 'CommonData.CBContractCode']
     field = ['Profiles']
     ts_card = parse(card, field, id_col_list_ts)
     ts_card = handle_missing_column(ts_card, ts_col)
@@ -131,7 +124,7 @@ if __name__ == "__main__":
     feature_value = df_fn.to_dict(orient='records')
     
     # To API-response
-    print('P_score:', predict[0])
+    print('Probability:', predict[0])
     print('Score:', predict_score[0])
     print('Features:', feature_value)
     print('Feature_scores:', score_feature)

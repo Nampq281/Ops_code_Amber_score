@@ -1,48 +1,9 @@
-import json
-import ast
-import pandas as pd
 import numpy as np
 import warnings
 warnings.filterwarnings("ignore")
 
 from datetime import datetime as dt
 from math import ceil
-
-import json
-
-# _______________________________________parse PCB____________________________________________________
-def to_json_fmt(node):
-    try:
-        fmt = str(node)
-        fmt = ast.literal_eval(fmt)
-    except:
-        fmt = {}
-    return fmt
-
-def flatten(node:list):
-    item_list = to_json_fmt(node)
-    if not isinstance(item_list, list):
-        item_list = [item_list]
-    flat_lst = [pd.json_normalize(item) for item in item_list]
-    return flat_lst
-    
-def attach_id(id_col_list, df_parent, flat_lst):
-    '''
-    flat_lst list: list of dataframe
-    id_col list: assign name of id column
-    df_parent pd.DataFrame: parent node
-    '''
-    for table in flat_lst:
-        for id_col in id_col_list:
-            table[id_col] = df_parent[id_col]
-    return flat_lst
-
-def explode_nest(result:list, id_col_list:list, df_parent:pd.DataFrame, node):
-    flat_lst = flatten(node)
-    flat_lst_attached = attach_id(id_col_list, df_parent, flat_lst)
-    result += flat_lst_attached    
-
-
 
 # _______________________________________Time format____________________________________________________
 def ym_format(input_str, fmt):
@@ -99,12 +60,3 @@ def concat_ym(ReferenceYear, ReferenceMonth):
         return ReferenceYear+ReferenceMonth
     
 
-#______________________________________________________________________
-
-def handle_missing_column(df, col_list, treat_value=np.nan):
-    missing_cols = set(col_list) - set(df.columns)
-
-    for col in missing_cols:
-        df[col] = treat_value
-
-    return df
