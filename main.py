@@ -8,11 +8,10 @@ from generate_feature import *
 from model_inference import get_model, cal_score
 import json
 
-if __name__ == "__main__":
+
+def score_pipeline(pcb_json):
     begin = time.time()
     #______________________________Data Preprocessing______________________________
-    with open('data_input/input.json') as json_data:
-        pcb_json = json.load(json_data)
 
     id_customer = pcb_json['contract_info']['customer_id']
     created_time = pcb_json['contract_info']['disbursed_time']
@@ -122,7 +121,15 @@ if __name__ == "__main__":
 
     df_fn = df_fn.fillna(-1)
     feature_value = df_fn.to_dict(orient='records')
-    
+    print(round(time.time()  - begin,3),'seconds')
+    return predict, predict_score, feature_value, score_feature
+
+if __name__ == "__main__":
+ 
+    with open('data_input/input.json') as json_data:
+        pcb_json = json.load(json_data)
+
+    predict, predict_score, feature_value, score_feature = score_pipeline(pcb_json)
     # To API-response
     print('Probability:', predict[0])
     print('Score:', predict_score[0])
@@ -130,4 +137,4 @@ if __name__ == "__main__":
     print('Feature_scores:', score_feature)
 
 
-    print(round(time.time()  - begin,3),'seconds')
+    
